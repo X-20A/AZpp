@@ -147,11 +147,11 @@
 #nav {
     display: flex;
 }
-#contoroller-box {
+#controller-box {
     display: flex;
     padding-top: 5px;
 }
-#contoroller-box .icon {
+#controller-box .icon {
     width: 27px;
     height: 27px;
 }

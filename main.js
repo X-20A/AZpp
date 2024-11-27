@@ -8,13 +8,6 @@ window.onload = async function () {
     // 設定系はlocalStorage
     // 作品関係はIndexedDB
 
-    const body = document.querySelector("body");
-
-    // オンオフするイベントリスナー
-    let wheel_event_listner = null;
-    let mouseover_event_listner = null;
-    let mouseout_event_listner = null;
-
     const page_info = {
         id: extractId(),
         title: document.querySelector("body > h1").textContent,
@@ -24,7 +17,7 @@ window.onload = async function () {
     // localStorage
 
     const initialSettings = {
-        is_horizonal: true, // 縦書きならtrue
+        is_horizontal: true, // 横書きならtrue
         is_exclude_ruby: true, // ルビを含まないならtrue
         scroll_smooth_lv: 12,
         is_scroll_cache: true,
@@ -95,7 +88,7 @@ window.onload = async function () {
     window.onscroll = function () {
         // console.log('getScrollbarPositionFromRight: ', getScrollbarPositionFromRight());
         // console.log('getScrollbarPositionFromTop: ', getScrollbarPositionFromTop());
-        content.last_scroll = settings.is_horizonal ? getScrollbarPositionFromTop() : getScrollbarPositionFromRight();
+        content.last_scroll = settings.is_horizontal ? getScrollbarPositionFromTop() : getScrollbarPositionFromRight();
         saveCurrentContent(content);
     }
 
@@ -109,7 +102,7 @@ window.onload = async function () {
                         <span class="nav-content" data-tab="2">読了履歴</span>
                         <span class="nav-content" data-tab="3">設定</span>
                     </div>
-                    <div id="contoroller-box">
+                    <div id="controller-box">
                         <p class="bookmark-icon update-bookmark ${content.fav_at === '' ? "bookmark-disable" : "bookmark-enable"} reload icon" data-id="${page_info.id}"></p>
                         <p class="done-icon update-done ${content.done_at === '' ? "done-disable" : "done-enable"} reload icon" data-id="${page_info.id}" style="margin-left: 3px;"></p>
                     </div>
@@ -124,12 +117,18 @@ window.onload = async function () {
         </div>
     `;
 
+    // オンオフするイベントリスナー
+    let wheel_event_listener = null;
+    let mouseover_event_listener = null;
+    let mouseout_event_listener = null;
+
+    const body = document.querySelector("body");
+
     body.insertAdjacentHTML('beforeend', modal_html);
 
     const modal = document.getElementById('modal-bg');
-    const generate_area = document.getElementById('generate-area');
 
-    const interfece_html = `
+    const interface_html = `
         <div id="interface">
             <p id="menu-icon-box">
                 <svg viewBox="0 0 24 24"><path id="menu-icon" fill="#ececec" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
@@ -137,7 +136,7 @@ window.onload = async function () {
         </div>
     `;
 
-    body.insertAdjacentHTML('beforeend', interfece_html); // test
+    body.insertAdjacentHTML('beforeend', interface_html); // test
 
     const interface = document.getElementById('interface');
 
@@ -239,8 +238,8 @@ window.onload = async function () {
                         </div>
                         <div>
                             <div class="setting-switch">
-                                <button class="setting-is-horizonal custom-radio ${settings.is_horizonal ? " radio-selected" : ""}" value="1">横書き</button>
-                                <button class="setting-is-horizonal custom-radio ${!settings.is_horizonal ? "radio-selected" : ""}" value="0">縦書き</button>
+                                <button class="setting-is-horizontal custom-radio ${settings.is_horizontal ? " radio-selected" : ""}" value="1">横書き</button>
+                                <button class="setting-is-horizontal custom-radio ${!settings.is_horizontal ? "radio-selected" : ""}" value="0">縦書き</button>
                             </div>
                         </div>
                     </div>
@@ -310,12 +309,15 @@ window.onload = async function () {
         return html;
     }
 
+    // modal表示
     interface.addEventListener('mousedown', function () {
         modal.style.display = 'flex';
     });
+    // modal非表示
     modal.addEventListener('mousedown', function () {
         modal.style.display = 'none';
     });
+    // modal内のクリックイベント
     document.getElementById('modal-container').addEventListener('mousedown', async function (event) {
         event.stopPropagation(); // ここで止めてるのでmodal内のクリックイベントはbodyには行かない
         if (event.button !== 0) return; // 左クリック以外は無視
@@ -344,8 +346,8 @@ window.onload = async function () {
             });
 
             // 設定更新
-            if (radio.classList.contains('setting-is-horizonal')) {
-                settings.is_horizonal = radio.value === "1";
+            if (radio.classList.contains('setting-is-horizontal')) {
+                settings.is_horizontal = radio.value === "1";
             } else if (radio.classList.contains('setting-theme')) {
                 settings.theme = Number(radio.value);
             }
@@ -438,16 +440,19 @@ window.onload = async function () {
         });
     }
 
+    // idを指定して閲覧履歴削除
     async function deleteOpenedAt(id) {
         await db.contents.update(id, {
             'opened_at': ""
         });
     }
 
+    // idでcontentを取得
     async function getContent(id) {
         return await db.contents.get(id);
     }
 
+    // keyを指定してcontentを取得 at系専用
     async function getContents(key, limit) {
         const results = await db.contents
             .where(key)
@@ -481,13 +486,14 @@ window.onload = async function () {
         }
     }
 
+    // settingsを参照してレイアウトに反映
     function reflectLayout() {
         // 必ずしも全てのtextが.main_textに入ってないので使わない
         // const main_text = document.querySelector(".main_text");
 
         const last_scroll = content.last_scroll; // レイアウト変更で変わっちゃうので退避
 
-        if (settings.is_horizonal) {
+        if (settings.is_horizontal) {
             body.style.writingMode = 'horizontal-tb';
         } else {
             body.style.writingMode = 'vertical-rl';
@@ -505,7 +511,7 @@ window.onload = async function () {
         }
 
         body.style.margin = '0';
-        body.style.padding = settings.is_horizonal ? `10% ${settings.body_padding}%` : `${settings.body_padding}% 10%`;
+        body.style.padding = settings.is_horizontal ? `10% ${settings.body_padding}%` : `${settings.body_padding}% 10%`;
         body.style.fontSize = settings.font_size + 'px'; // h1, h2とかは除外する？
 
         // テーマ切替
@@ -559,14 +565,14 @@ window.onload = async function () {
         document.getElementById('menu-icon').style.fill = '#' + icon_color;
 
         // 縦書きレイアウトの為にスクロールをカスタム処理
-        if (wheel_event_listner) {
-            body.removeEventListener('wheel', wheel_event_listner, {
+        if (wheel_event_listener) {
+            body.removeEventListener('wheel', wheel_event_listener, {
                 passive: false
             });
-            wheel_event_listner = null;
+            wheel_event_listener = null;
         }
-        if (!settings.is_horizonal) {
-            wheel_event_listner = (event) => {
+        if (!settings.is_horizontal) {
+            wheel_event_listener = (event) => {
                 event.preventDefault(); // デフォルトの縦スクロールを無効化
 
                 const totalScroll = -event.deltaY; // ホイール操作のスクロール量
@@ -586,32 +592,32 @@ window.onload = async function () {
                 smoothScroll(); // アニメーション開始
             };
 
-            body.addEventListener('wheel', wheel_event_listner, {
+            body.addEventListener('wheel', wheel_event_listener, {
                 passive: false
             });
         }
 
         // interface部のデザインをテーマごとに調整
-        if (mouseover_event_listner) {
-            interface.removeEventListener('mouseover', mouseover_event_listner);
-            mouseover_event_listner = null;
+        if (mouseover_event_listener) {
+            interface.removeEventListener('mouseover', mouseover_event_listener);
+            mouseover_event_listener = null;
         }
-        if (mouseout_event_listner) {
-            interface.removeEventListener('mouseout', mouseout_event_listner);
-            mouseout_event_listner = null;
+        if (mouseout_event_listener) {
+            interface.removeEventListener('mouseout', mouseout_event_listener);
+            mouseout_event_listener = null;
         }
 
-        mouseover_event_listner = (event) => {
+        mouseover_event_listener = (event) => {
             interface.style.backgroundColor = '#' + hover_interface_color;
             document.getElementById('menu-icon').style.fill = '#' + hover_menu_icon_color;
         };
-        mouseout_event_listner = (event) => {
+        mouseout_event_listener = (event) => {
             interface.style.backgroundColor = '#' + bg_color;
             document.getElementById('menu-icon').style.fill = '#' + icon_color;
         };
 
-        interface.addEventListener('mouseover', mouseover_event_listner);
-        interface.addEventListener('mouseout', mouseout_event_listner);
+        interface.addEventListener('mouseover', mouseover_event_listener);
+        interface.addEventListener('mouseout', mouseout_event_listener);
 
         // 縦書き | 横書き を切り替えたときの為にスクロール位置調整
         requestAnimationFrame(() => {
@@ -622,7 +628,7 @@ window.onload = async function () {
 
     // 任意の位置(右側からの百分率)にスクロール
     function scrollWithPercentage(percentage) {
-        if (settings.is_horizonal) {
+        if (settings.is_horizontal) {
             scrollTo(0, (percentage / 100) * (document.documentElement.scrollHeight - document.documentElement.clientHeight));
         } else {
             scrollTo({
@@ -644,6 +650,7 @@ window.onload = async function () {
         return percentageFromRight;
     }
 
+    // スクロールバーが終端までの何%の位置にあるか取得
     function getScrollbarPositionFromTop() {
         // scrollTopはdocument.documentElementを優先して取得
         const scrollTop = document.documentElement.scrollTop;
