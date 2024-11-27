@@ -155,7 +155,7 @@ window.onload = async function(){
                 console.log('bookmarks', bookmarks);
                 const bookmark_length = bookmarks.length;
                 if(!bookmark_length) {
-                    html = '<p id="empty">empty</p>'
+                    html = '<p class="empty">empty</p>'
                 }
                 for(let i = 0;i < bookmark_length;i++) {
                     const bookmark = bookmarks[i];
@@ -184,7 +184,7 @@ window.onload = async function(){
                 console.log('opened_histories', opened_histories);
                 const opened_histories_length = opened_histories.length;
                 if (!opened_histories_length) {
-                    html = '<p id="empty">empty</p>'
+                    html = '<p class="empty">empty</p>'
                 }
                 for (let i = 0; i < opened_histories_length; i++) {
                     const opened_history = opened_histories[i];
@@ -215,7 +215,7 @@ window.onload = async function(){
                 console.log('opened_histories', done_histories);
                 const done_histories_length = done_histories.length;
                 if (!done_histories_length) {
-                    html = '<p id="empty">empty</p>'
+                    html = '<p class="empty">empty</p>'
                 }
                 for (let i = 0; i < done_histories_length; i++) {
                     const done_history = done_histories[i];
@@ -393,7 +393,7 @@ window.onload = async function(){
         const opened_target = target.closest('.delete-icon-box');
         if (opened_target) {
             await deleteOpenedAt(opened_target.dataset.id);
-            opened_target.closest('.opened_history-list').remove();
+            opened_target.closest('.list-items').remove();
             return;
         }
 
@@ -408,7 +408,7 @@ window.onload = async function(){
                 done_target.classList.replace('done-enable', 'done-disable');
             }
             if (done_target.classList.contains('reload')) {
-                document.getElementById('done-top').innerHTML = await generateTab('done');
+                document.getElementById('done-history-top').innerHTML = await generateTab('done_history');
             }
             return;
         }
@@ -451,13 +451,13 @@ window.onload = async function(){
     }
 
     async function getContent(id) {
-        return await db.contents.get(content.id);
+        return await db.contents.get(id);
     }
     
     async function getContents(key, limit) {
         const results = await db.contents
-            // .where(key)
-            // .notEqual('') // 空文字でない
+            .where(key)
+            .notEqual('') // 空文字でない
             // .limit(limit)
             .toArray(); // 配列で取得
 

@@ -64,6 +64,11 @@
     align-items: center;
     justify-content: space-between;
 }
+.empty {
+    text-align: center;
+    padding: 50px;
+    color: #a1a1a1;
+}
 .icon {
     cursor: pointer;
 }
