@@ -64,6 +64,9 @@
     align-items: center;
     justify-content: space-between;
 }
+.list-title {
+    margin-left: 5px !important;
+}
 .empty {
     text-align: center;
     padding: 50px;

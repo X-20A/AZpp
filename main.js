@@ -172,7 +172,7 @@ window.onload = async function(){
                                 <p class="bookmark-icon update-bookmark bookmark-enable icon" data-id="${id}">
                                     
                                 </p>
-                                <p><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
+                                <p class="list-title"><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
                             </div>
                             <p style="flex: 1;"><a href="${author_url}" target="_blank" rel="noopener noreferrer">${author}</a></p>
                         </div>
@@ -198,7 +198,7 @@ window.onload = async function(){
                     html += `
                         <div class="list-items">
                             <div style="flex: 2;display: flex;align-items: center;">
-                                <p><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
+                                <p class="list-title"><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
                             </div>
                             <p style="flex: 1;"><a href="${author_url}" target="_blank" rel="noopener noreferrer">${author}</a></p>
                             <p class="delete-icon-box icon" data-id="${id}">
@@ -232,7 +232,7 @@ window.onload = async function(){
                                 <p class="done-icon update-done done-enable icon" data-id="${id}">
 
                                 </p>
-                                <p><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
+                                <p class="list-title"><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
                             </div>
                             <p style="flex: 1;"><a href="${author_url}" target="_blank" rel="noopener noreferrer">${author}</a></p>
                         </div>
