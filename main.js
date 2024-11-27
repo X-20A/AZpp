@@ -1,4 +1,4 @@
-window.onload = async function(){
+window.onload = async function () {
     /*
         ToDo
         ・highlight実装
@@ -92,7 +92,7 @@ window.onload = async function(){
     }
 
     // スクロールでlast_scroll更新
-    window.onscroll = function() {
+    window.onscroll = function () {
         // console.log('getScrollbarPositionFromRight: ', getScrollbarPositionFromRight());
         // console.log('getScrollbarPositionFromTop: ', getScrollbarPositionFromTop());
         content.last_scroll = settings.is_horizonal ? getScrollbarPositionFromTop() : getScrollbarPositionFromRight();
@@ -124,9 +124,7 @@ window.onload = async function(){
         </div>
     `;
 
-    body.insertAdjacentHTML('beforeend', modal_html); // test
-
-    console.log(document.querySelector('#modal-bg'));
+    body.insertAdjacentHTML('beforeend', modal_html);
 
     const modal = document.getElementById('modal-bg');
     const generate_area = document.getElementById('generate-area');
@@ -149,17 +147,15 @@ window.onload = async function(){
     // type: 'bookmark' | 'opened_history' | 'done_history' | 'setting'
     async function generateTab(type) {
         let html = '';
-        switch(type) {
+        switch (type) {
             case 'bookmark':
                 const bookmarks = await getContents('fav_at');
-                console.log('bookmarks', bookmarks);
                 const bookmark_length = bookmarks.length;
-                if(!bookmark_length) {
+                if (!bookmark_length) {
                     html = '<p class="empty">empty</p>'
                 }
-                for(let i = 0;i < bookmark_length;i++) {
+                for (let i = 0; i < bookmark_length; i++) {
                     const bookmark = bookmarks[i];
-                    console.log('bookmark', bookmark);
                     const id = bookmark.id;
                     const title = bookmark.title;
                     const author = bookmark.author;
@@ -181,14 +177,12 @@ window.onload = async function(){
                 break;
             case 'opened_history':
                 const opened_histories = await getContents('opened_at');
-                console.log('opened_histories', opened_histories);
                 const opened_histories_length = opened_histories.length;
                 if (!opened_histories_length) {
                     html = '<p class="empty">empty</p>'
                 }
                 for (let i = 0; i < opened_histories_length; i++) {
                     const opened_history = opened_histories[i];
-                    console.log('opened_history', opened_history);
                     const id = opened_history.id;
                     const title = opened_history.title;
                     const author = opened_history.author;
@@ -212,14 +206,12 @@ window.onload = async function(){
                 break;
             case 'done_history':
                 const done_histories = await getContents('done_at');
-                console.log('opened_histories', done_histories);
                 const done_histories_length = done_histories.length;
                 if (!done_histories_length) {
                     html = '<p class="empty">empty</p>'
                 }
                 for (let i = 0; i < done_histories_length; i++) {
                     const done_history = done_histories[i];
-                    console.log('done_history', done_history);
                     const id = done_history.id;
                     const title = done_history.title;
                     const author = done_history.author;
@@ -238,7 +230,7 @@ window.onload = async function(){
                         </div>
                     `;
                 }
-            break;
+                break;
             case 'setting':
                 html = `
                     <div class="setting-box">
@@ -318,13 +310,13 @@ window.onload = async function(){
         return html;
     }
 
-    interface.addEventListener('click', function() {
+    interface.addEventListener('mousedown', function () {
         modal.style.display = 'flex';
     });
-    modal.addEventListener('mousedown', function() {
+    modal.addEventListener('mousedown', function () {
         modal.style.display = 'none';
     });
-    document.getElementById('modal-container').addEventListener('mousedown', async function(event) {
+    document.getElementById('modal-container').addEventListener('mousedown', async function (event) {
         event.stopPropagation(); // ここで止めてるのでmodal内のクリックイベントはbodyには行かない
         if (event.button !== 0) return; // 左クリック以外は無視
         const target = event.target;
@@ -376,14 +368,12 @@ window.onload = async function(){
         if (bookmark_target) {
             const is_to_enable = bookmark_target.classList.contains('bookmark-disable');
             await updateTime(bookmark_target.dataset.id, 'fav_at', is_to_enable);
-            if(is_to_enable) {
+            if (is_to_enable) {
                 bookmark_target.classList.replace('bookmark-disable', 'bookmark-enable');
             } else {
                 bookmark_target.classList.replace('bookmark-enable', 'bookmark-disable');
             }
             if (bookmark_target.classList.contains('reload')) {
-                console.log('reload');
-                console.log('bookmark_target', bookmark_target);
                 document.getElementById('bookmark-top').innerHTML = await generateTab('bookmark');
             }
             return;
@@ -443,17 +433,21 @@ window.onload = async function(){
     async function updateTime(id, key, is_to_enable) {
         // console.trace();
         const new_time = is_to_enable ? new Date().getTime() : "";
-        await db.contents.update(id, { [key]: new_time });
+        await db.contents.update(id, {
+            [key]: new_time
+        });
     }
 
     async function deleteOpenedAt(id) {
-        await db.contents.update(id, { 'opened_at': "" });
+        await db.contents.update(id, {
+            'opened_at': ""
+        });
     }
 
     async function getContent(id) {
         return await db.contents.get(id);
     }
-    
+
     async function getContents(key, limit) {
         const results = await db.contents
             .where(key)
@@ -480,9 +474,9 @@ window.onload = async function(){
         if (parts.length !== 3) {
             throw new Error('Invalid input format');
         }
-        if(type === 'content') {
+        if (type === 'content') {
             return `https://www.aozora.gr.jp/cards/${parts[0]}/files/${parts[1]}_${parts[2]}.html`;
-        } else if(type === 'author') {
+        } else if (type === 'author') {
             return `https://www.aozora.gr.jp/index_pages/person${Number(parts[0])}.html`;
         }
     }
@@ -493,14 +487,14 @@ window.onload = async function(){
 
         const last_scroll = content.last_scroll; // レイアウト変更で変わっちゃうので退避
 
-        if(settings.is_horizonal) {
+        if (settings.is_horizonal) {
             body.style.writingMode = 'horizontal-tb';
         } else {
             body.style.writingMode = 'vertical-rl';
         }
 
         // ルビを選択に含めない
-        if(settings.is_exclude_ruby) {
+        if (settings.is_exclude_ruby) {
             document.querySelectorAll("ruby rp, ruby rt").forEach((elem) => {
                 elem.style.userSelect = "none";
             });
@@ -514,8 +508,6 @@ window.onload = async function(){
         body.style.padding = settings.is_horizonal ? `10% ${settings.body_padding}%` : `${settings.body_padding}% 10%`;
         body.style.fontSize = settings.font_size + 'px'; // h1, h2とかは除外する？
 
-        
-
         // テーマ切替
         // 0: 通常, 1: 空, 2: 翠, 3: 暗, 4: 紺
         let bg_color = 'fff';
@@ -523,7 +515,7 @@ window.onload = async function(){
         let icon_color = 'ececece';
         let hover_interface_color = 'ececec';
         let hover_menu_icon_color = '000';
-        switch(settings.theme) {
+        switch (settings.theme) {
             case 0:
                 bg_color = 'fff';
                 font_color = '000';
@@ -559,7 +551,7 @@ window.onload = async function(){
                 hover_interface_color = '424242';
                 hover_menu_icon_color = 'fff';
                 break;
-            
+
         }
         body.style.backgroundColor = '#' + bg_color;
         body.style.color = '#' + font_color;
@@ -568,7 +560,9 @@ window.onload = async function(){
 
         // 縦書きレイアウトの為にスクロールをカスタム処理
         if (wheel_event_listner) {
-            body.removeEventListener('wheel', wheel_event_listner, { passive: false });
+            body.removeEventListener('wheel', wheel_event_listner, {
+                passive: false
+            });
             wheel_event_listner = null;
         }
         if (!settings.is_horizonal) {
@@ -592,15 +586,17 @@ window.onload = async function(){
                 smoothScroll(); // アニメーション開始
             };
 
-            body.addEventListener('wheel', wheel_event_listner, { passive: false });
+            body.addEventListener('wheel', wheel_event_listner, {
+                passive: false
+            });
         }
 
         // interface部のデザインをテーマごとに調整
-        if(mouseover_event_listner) {
+        if (mouseover_event_listner) {
             interface.removeEventListener('mouseover', mouseover_event_listner);
             mouseover_event_listner = null;
         }
-        if(mouseout_event_listner) {
+        if (mouseout_event_listner) {
             interface.removeEventListener('mouseout', mouseout_event_listner);
             mouseout_event_listner = null;
         }
@@ -621,17 +617,17 @@ window.onload = async function(){
         requestAnimationFrame(() => {
             scrollWithPercentage(last_scroll);
         });
-        
+
     }
 
     // 任意の位置(右側からの百分率)にスクロール
     function scrollWithPercentage(percentage) {
-        console.log('percentage: ', percentage);
-
-        if(settings.is_horizonal) {
+        if (settings.is_horizonal) {
             scrollTo(0, (percentage / 100) * (document.documentElement.scrollHeight - document.documentElement.clientHeight));
         } else {
-            scrollTo({ left: document.querySelector('body').scrollWidth * (-percentage / 100) });
+            scrollTo({
+                left: document.querySelector('body').scrollWidth * (-percentage / 100)
+            });
         }
     }
 
@@ -641,10 +637,10 @@ window.onload = async function(){
         const documentWidth = document.documentElement.scrollWidth;
         // 現在のスクロール位置（左端からの位置）
         const scrollLeft = document.documentElement.scrollLeft * -1;
-    
+
         // ドキュメント全幅に対する右からの割合
         const percentageFromRight = 100 - ((documentWidth - scrollLeft) / documentWidth) * 100;
-    
+
         return percentageFromRight;
     }
 
