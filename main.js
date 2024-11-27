@@ -10,9 +10,10 @@ window.onload = async function(){
 
     const body = document.querySelector("body");
 
+    // オンオフするイベントリスナー
     let wheel_event_listner = null;
-
-    let current_tab = 'bookmark';
+    let mouseover_event_listner = null;
+    let mouseout_event_listner = null;
 
     const page_info = {
         id: extractId(),
@@ -23,15 +24,13 @@ window.onload = async function(){
     // localStorage
 
     const initialSettings = {
-        is_horizontal: true, // 縦書きならtrue
+        is_horizonal: true, // 縦書きならtrue
         is_exclude_ruby: true, // ルビを含まないならtrue
         scroll_smooth_lv: 12,
         is_scroll_cache: true,
-        palette: [], // highlightに使うカラー '252525'とか
+        // palette: [], // highlightに使うカラー '252525'とか 一旦採用見送り
         font_size: 22,
-        font_color: '000',
         body_padding: 8,
-        background_color: 'fff',
         // カラー系は初期値に戻せるだけじゃなくて継承も選べるといいかも(他の拡張機能との競合を避けたい)
         theme: 0,
     };
@@ -57,26 +56,22 @@ window.onload = async function(){
         },
     });
 
-    console.log(settings);
-    // settings.is_horizontal = true; // test
-    // settings.font_size = 22; // test
-
     // IndexedDB こっちは都度手動で保存
     const content = {
         id: page_info.id,
         title: page_info.title,
         author: page_info.author,
         last_scroll: 0,
-        highlight: [], // [120, 145, '252525'] [start, end, color]
-        done_at: "", // 読了した時刻 とりあえずユーザーが手動で操作したら設定
-        opened_at: new Date().getTime(),
+        // highlight: [], // [120, 145, '252525'] [start, end, color] 採用見送り
         fav_at: "",
+        opened_at: new Date().getTime(),
+        done_at: "", // 読了した時刻 とりあえずユーザーが手動で操作したら設定
     };
 
     const db = new Dexie('AZ_index');
 
     db.version(1).stores({
-        contents: 'id,title,author,last_scroll,highlight,done_at,opened_at,updated_at,fav_at'
+        contents: 'id,title,author,last_scroll,fav_at,opened_at,done_at'
     });
 
     db.open().then(() => {
@@ -86,8 +81,8 @@ window.onload = async function(){
     });
 
     // 開いている作品の情報を登録、ないし更新
-    console.log('content.id : ', content.id);
-    const existingContent = await db.contents.get(content.id);
+    // ※fav_atやdone_atはこのあと書き換わり得るのでcontentからは取得しない 紛らわしいので修正したい
+    const existingContent = await getContent(content.id);
     if (existingContent) {
         Object.assign(content, existingContent);
         content.opened_at = new Date().getTime();
@@ -96,32 +91,34 @@ window.onload = async function(){
         await db.contents.add(content);
     }
 
-    reflectLayout(); // レイアウト反映
-
-    if (settings.is_scroll_cache) scrollWithPercentage(content.last_scroll); // 前回のスクロール位置へジャンプ
-
-    // last_scroll更新
+    // スクロールでlast_scroll更新
     window.onscroll = function() {
-        console.log('getScrollbarPositionFromRight: ', getScrollbarPositionFromRight);
-        console.log('getScrollbarPositionFromTop: ', getScrollbarPositionFromTop);
-        content.last_scroll = settings.is_horizontal ? getScrollbarPositionFromRight() : getScrollbarPositionFromTop();
+        // console.log('getScrollbarPositionFromRight: ', getScrollbarPositionFromRight());
+        // console.log('getScrollbarPositionFromTop: ', getScrollbarPositionFromTop());
+        content.last_scroll = settings.is_horizonal ? getScrollbarPositionFromRight() : getScrollbarPositionFromTop();
         saveCurrentContent(content);
     }
 
     const modal_html = `
         <div id="modal-bg">
             <div id="modal-container">
-                <div id="nav">
-                    <span class="nav-content nav-selected" data-tab="0">ブクマ</span>
-                    <span class="nav-content" data-tab="1">閲覧履歴</span>
-                    <span class="nav-content" data-tab="2">読了履歴</span>
-                    <span class="nav-content" data-tab="3">設定</span>
+                <div id="header-box">
+                    <div id="nav">
+                        <span class="nav-content nav-selected" data-tab="0">ブクマ</span>
+                        <span class="nav-content" data-tab="1">閲覧履歴</span>
+                        <span class="nav-content" data-tab="2">読了履歴</span>
+                        <span class="nav-content" data-tab="3">設定</span>
+                    </div>
+                    <div id="contoroller-box">
+                        <p class="bookmark-icon update-bookmark ${content.fav_at === '' ? "bookmark-disable" : "bookmark-enable"} reload icon" data-id="${page_info.id}"></p>
+                        <p class="done-icon update-done ${content.done_at === '' ? "done-disable" : "done-enable"} reload icon" data-id="${page_info.id}" style="margin-left: 3px;"></p>
+                    </div>
                 </div>
                 <div id="generate-area">
-                    ${await generateTab('bookmark', true)}
-                    ${await generateTab('opened_history', false)}
-                    ${await generateTab('done_history', false)}
-                    ${await generateTab('setting', false)}
+                    <div id="bookmark-top" class="list-box"}>${await generateTab('bookmark')}</div>
+                    <div id="opened-history-top" class="list-box" style="display: none;"}>${await generateTab('opened_history')}</div>
+                    <div id="done-history-top" class="list-box" style="display: none;"}>${await generateTab('done_history')}</div>
+                    <div id="setting-top" class="list-box" style="display: none;"}>${await generateTab('setting')}</div>
                 </div>
             </div>
         </div>
@@ -136,7 +133,9 @@ window.onload = async function(){
 
     const interfece_html = `
         <div id="interface">
-            <p id="menu-icon"></p>
+            <p id="menu-icon-box">
+                <svg viewBox="0 0 24 24"><path id="menu-icon" fill="#ececec" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
+            </p>
         </div>
     `;
 
@@ -144,9 +143,11 @@ window.onload = async function(){
 
     const interface = document.getElementById('interface');
 
+    reflectLayout(); // レイアウト反映
+
     // モーダル内に表示するhtml生成
     // type: 'bookmark' | 'opened_history' | 'done_history' | 'setting'
-    async function generateTab(type, is_visible) {
+    async function generateTab(type) {
         let html = '';
         switch(type) {
             case 'bookmark':
@@ -166,7 +167,7 @@ window.onload = async function(){
                     const author_url = reconstructUrl(id, 'author');
 
                     html += `
-                        <div class="bookmark-list list-items">
+                        <div class="list-items">
                             <div style="flex: 2;display: flex;align-items: center;">
                                 <p class="bookmark-icon update-bookmark bookmark-enable icon" data-id="${id}">
                                     
@@ -195,7 +196,7 @@ window.onload = async function(){
                     const author_url = reconstructUrl(id, 'author');
 
                     html += `
-                        <div class="opened_history-list list-items">
+                        <div class="list-items">
                             <div style="flex: 2;display: flex;align-items: center;">
                                 <p><a href="${content_url}">${title}</a></p>
                             </div>
@@ -226,7 +227,7 @@ window.onload = async function(){
                     const author_url = reconstructUrl(id, 'author');
 
                     html += `
-                        <div class="done-list list-items">
+                        <div class="list-items">
                             <div style="flex: 2;display: flex;align-items: center;">
                                 <p class="done-icon update-done done-enable icon" data-id="${id}">
 
@@ -246,8 +247,8 @@ window.onload = async function(){
                         </div>
                         <div>
                             <div class="setting-switch">
-                                <button class="setting-is-horizonal custom-radio ${!settings.is_horizontal ? "radio-selected" : ""}" value="0">縦書き</button>
-                                <button class="setting-is-horizonal custom-radio ${settings.is_horizontal ? " radio-selected" : ""}" value="1">横書き</button>
+                                <button class="setting-is-horizonal custom-radio ${!settings.is_horizonal ? "radio-selected" : ""}" value="0">縦書き</button>
+                                <button class="setting-is-horizonal custom-radio ${settings.is_horizonal ? " radio-selected" : ""}" value="1">横書き</button>
                             </div>
                         </div>
                     </div>
@@ -301,11 +302,11 @@ window.onload = async function(){
                         </div>
                         <div>
                             <div class="setting-switch">
-                                <button class="setting-theme custom-radio ${settings.theme === 0 ? "radio-selected" : ""}" value="0">素</button>
-                                <button class="setting-theme custom-radio ${settings.theme === 1 ? "radio-selected" : ""}" value="1">空</button>
-                                <button class="setting-theme custom-radio ${settings.theme === 2 ? "radio-selected" : ""}" value="2">翠</button>
-                                <button class="setting-theme custom-radio ${settings.theme === 3 ? "radio-selected" : ""}" value="3">暗</button>
-                                <button class="setting-theme custom-radio ${settings.theme === 4 ? "radio-selected" : ""}" value="4">紺</button>
+                                <button class="setting-theme custom-radio ${settings.theme === 0 ? "radio-selected" : ""}" value="0">明</button>
+                                <button class="setting-theme custom-radio ${settings.theme === 1 ? "radio-selected" : ""}" value="1">翠</button>
+                                <button class="setting-theme custom-radio ${settings.theme === 2 ? "radio-selected" : ""}" value="2">空</button>
+                                <button class="setting-theme custom-radio ${settings.theme === 3 ? "radio-selected" : ""}" value="3">紺</button>
+                                <button class="setting-theme custom-radio ${settings.theme === 4 ? "radio-selected" : ""}" value="4">暗</button>
                             </div>
                         </div>
                     </div>
@@ -314,7 +315,6 @@ window.onload = async function(){
             default:
                 return;
         }
-        html = `<div class="list-box" ${!is_visible ? 'style="display: none;"' : ''}>${html}</div>`;
         return html;
     }
 
@@ -326,6 +326,7 @@ window.onload = async function(){
     });
     document.getElementById('modal-container').addEventListener('mousedown', async function(event) {
         event.stopPropagation(); // ここで止めてるのでmodal内のクリックイベントはbodyには行かない
+        if (event.button !== 0) return; // 左クリック以外は無視
         const target = event.target;
 
         const nav_target = target.closest('.nav-content');
@@ -352,7 +353,7 @@ window.onload = async function(){
 
             // 設定更新
             if (radio.classList.contains('setting-is-horizonal')) {
-                settings.is_horizontal = radio.value === "1";
+                settings.is_horizonal = radio.value === "1";
             } else if (radio.classList.contains('setting-theme')) {
                 settings.theme = Number(radio.value);
             }
@@ -380,8 +381,10 @@ window.onload = async function(){
             } else {
                 bookmark_target.classList.replace('bookmark-enable', 'bookmark-disable');
             }
-            if (bookmark_target.classList.contains('reload') && current_tab === 'bookmark') {
-                generate_area.innerHTML = await generateTab('bookmark');
+            if (bookmark_target.classList.contains('reload')) {
+                console.log('reload');
+                console.log('bookmark_target', bookmark_target);
+                document.getElementById('bookmark-top').innerHTML = await generateTab('bookmark');
             }
             return;
         }
@@ -404,8 +407,8 @@ window.onload = async function(){
             } else {
                 done_target.classList.replace('done-enable', 'done-disable');
             }
-            if (done_target.classList.contains('reload') && current_tab === 'done') {
-                generate_area.innerHTML = await generateTab('done');
+            if (done_target.classList.contains('reload')) {
+                document.getElementById('done-top').innerHTML = await generateTab('done');
             }
             return;
         }
@@ -445,7 +448,11 @@ window.onload = async function(){
 
     async function deleteOpenedAt(id) {
         await db.contents.update(id, { 'opened_at': "" });
-    } 
+    }
+
+    async function getContent(id) {
+        return await db.contents.get(content.id);
+    }
     
     async function getContents(key, limit) {
         const results = await db.contents
@@ -481,68 +488,90 @@ window.onload = async function(){
     }
 
     function reflectLayout() {
-        // 必ずしも全てのtextが.main_textに入ってない
+        // 必ずしも全てのtextが.main_textに入ってないので使わない
         // const main_text = document.querySelector(".main_text");
 
-        if(settings.is_horizontal) {
+        const last_scroll = content.last_scroll; // レイアウト変更で変わっちゃうので退避
+
+        if(settings.is_horizonal) {
             body.style.writingMode = 'vertical-rl';
         } else {
             body.style.writingMode = 'horizontal-tb';
         }
 
-        scrollWithPercentage(content.last_scroll);
-
+        // ルビを選択に含めない
         if(settings.is_exclude_ruby) {
-            // ルビを選択に含めない
             document.querySelectorAll("ruby rp, ruby rt").forEach((elem) => {
                 elem.style.userSelect = "none";
             });
         } else {
             document.querySelectorAll("ruby rp, ruby rt").forEach((elem) => {
-                elem.style.userSelect = "auto";
+                elem.style.userSelect = "text";
             });
         }
 
         body.style.margin = '0';
-        body.style.padding = `${settings.body_padding}% 10%`;
+        body.style.padding = settings.is_horizonal ? `${settings.body_padding}% 10%` : `10% ${settings.body_padding}%`;
         body.style.fontSize = settings.font_size + 'px'; // h1, h2とかは除外する？
+
+        
 
         // テーマ切替
         // 0: 通常, 1: 空, 2: 翠, 3: 暗, 4: 紺
         let bg_color = 'fff';
         let font_color = '000';
+        let icon_color = 'ececece';
+        let hover_interface_color = 'ececec';
+        let hover_menu_icon_color = '000';
         switch(settings.theme) {
             case 0:
                 bg_color = 'fff';
                 font_color = '000';
+                icon_color = 'ececec';
+                hover_interface_color = 'ececec';
+                hover_menu_icon_color = 'fff';
                 break;
             case 1:
-                bg_color = 'CDE8FF';
-                font_color = '000';
-                break;
-            case 2:
                 bg_color = 'C4E6CD';
                 font_color = '000';
+                icon_color = '8dde97';
+                hover_interface_color = 'a8e5b8';
+                hover_menu_icon_color = 'fff';
+                break;
+            case 2:
+                bg_color = 'CDE8FF';
+                font_color = '000';
+                icon_color = '95d7eb';
+                hover_interface_color = 'b0e2ff';
+                hover_menu_icon_color = 'fff';
                 break;
             case 3:
-                bg_color = '000';
-                font_color = 'fff';
-                break;
-            case 4:
                 bg_color = '102042';
                 font_color = 'fff';
+                icon_color = '4b71c8';
+                hover_interface_color = '3d5380';
+                hover_menu_icon_color = 'fff';
                 break;
+            case 4:
+                bg_color = '000';
+                font_color = 'fff';
+                icon_color = '8b8b8b';
+                hover_interface_color = '424242';
+                hover_menu_icon_color = 'fff';
+                break;
+            
         }
         body.style.backgroundColor = '#' + bg_color;
         body.style.color = '#' + font_color;
+        interface.style.backgroundColor = '#' + bg_color;
+        document.getElementById('menu-icon').style.fill = '#' + icon_color;
 
         // 縦書きレイアウトの為にスクロールをカスタム処理
-
         if (wheel_event_listner) {
             body.removeEventListener('wheel', wheel_event_listner, { passive: false });
             wheel_event_listner = null;
         }
-        if (settings.is_horizontal) {
+        if (settings.is_horizonal) {
             wheel_event_listner = (event) => {
                 event.preventDefault(); // デフォルトの縦スクロールを無効化
 
@@ -565,14 +594,44 @@ window.onload = async function(){
 
             body.addEventListener('wheel', wheel_event_listner, { passive: false });
         }
+
+        // interface部のデザインをテーマごとに調整
+        if(mouseover_event_listner) {
+            interface.removeEventListener('mouseover', mouseover_event_listner);
+            mouseover_event_listner = null;
+        }
+        if(mouseout_event_listner) {
+            interface.removeEventListener('mouseout', mouseout_event_listner);
+            mouseout_event_listner = null;
+        }
+
+        mouseover_event_listner = (event) => {
+            interface.style.backgroundColor = '#' + hover_interface_color;
+            document.getElementById('menu-icon').style.fill = '#' + hover_menu_icon_color;
+        };
+        mouseout_event_listner = (event) => {
+            interface.style.backgroundColor = '#' + bg_color;
+            document.getElementById('menu-icon').style.fill = '#' + icon_color;
+        };
+
+        interface.addEventListener('mouseover', mouseover_event_listner);
+        interface.addEventListener('mouseout', mouseout_event_listner);
+
+        // 縦書き | 横書き を切り替えたときの為にスクロール位置調整
+        requestAnimationFrame(() => {
+            scrollWithPercentage(last_scroll);
+        });
+        
     }
 
     // 任意の位置(右側からの百分率)にスクロール
     function scrollWithPercentage(percentage) {
-        if(settings.is_horizontal) {
-            scrollTo({ left: document.querySelector('body').scrollWidth * (percentage / 100) });
+        console.log('percentage: ', percentage);
+
+        if(settings.is_horizonal) {
+                scrollTo({ left: document.querySelector('body').scrollWidth * (-percentage / 100) });
         } else {
-            scrollTo({ bottom: document.querySelector('body').scrollHeight * (percentage / 100) });
+            scrollTo(0, (percentage / 100) * (document.documentElement.scrollHeight - document.documentElement.clientHeight));
         }
     }
 
@@ -584,21 +643,19 @@ window.onload = async function(){
         const scrollLeft = document.documentElement.scrollLeft * -1;
     
         // ドキュメント全幅に対する右からの割合
-        const percentageFromRight = ((documentWidth - scrollLeft) / documentWidth) * 100 - 100;
+        const percentageFromRight = 100 - ((documentWidth - scrollLeft) / documentWidth) * 100;
     
         return percentageFromRight;
     }
 
     function getScrollbarPositionFromTop() {
-        // ドキュメントの全高
-        const documentHeight = document.documentElement.scrollHeight;
-        // 現在のスクロール位置（上端からの位置）
+        // scrollTopはdocument.documentElementを優先して取得
         const scrollTop = document.documentElement.scrollTop;
+        // scrollHeightは、document.documentElement.scrollHeight - clientHeightを使ってページ全体の高さを考慮
+        const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
 
-        // ドキュメント全高に対する上からの割合
-        const percentageFromTop = (scrollTop / (documentHeight - window.innerHeight)) * 100;
-
-        return percentageFromTop;
+        // scrollTopの位置がページのどの位置にいるかの割合を計算
+        const scrollPercentage = (scrollTop / scrollHeight) * 100;
+        return scrollPercentage;
     }
-
 };
