@@ -172,9 +172,9 @@ window.onload = async function(){
                                 <p class="bookmark-icon update-bookmark bookmark-enable icon" data-id="${id}">
                                     
                                 </p>
-                                <p><a href="${content_url}">${title}</a></p>
+                                <p><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
                             </div>
-                            <p style="flex: 1;"><a href="${author_url}">${author}</a></p>
+                            <p style="flex: 1;"><a href="${author_url}" target="_blank" rel="noopener noreferrer">${author}</a></p>
                         </div>
                     `;
                 }
@@ -198,9 +198,9 @@ window.onload = async function(){
                     html += `
                         <div class="list-items">
                             <div style="flex: 2;display: flex;align-items: center;">
-                                <p><a href="${content_url}">${title}</a></p>
+                                <p><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
                             </div>
-                            <p style="flex: 1;"><a href="${author_url}">${author}</a></p>
+                            <p style="flex: 1;"><a href="${author_url}" target="_blank" rel="noopener noreferrer">${author}</a></p>
                             <p class="delete-icon-box icon" data-id="${id}">
                                 <svg viewBox="0 0 24 24">
                                     <path class="delete-icon" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path>
@@ -232,9 +232,9 @@ window.onload = async function(){
                                 <p class="done-icon update-done done-enable icon" data-id="${id}">
 
                                 </p>
-                                <p><a href="${content_url}">${title}</a></p>
+                                <p><a href="${content_url}" target="_blank" rel="noopener noreferrer">${title}</a></p>
                             </div>
-                            <p style="flex: 1;"><a href="${author_url}">${author}</a></p>
+                            <p style="flex: 1;"><a href="${author_url}" target="_blank" rel="noopener noreferrer">${author}</a></p>
                         </div>
                     `;
                 }
