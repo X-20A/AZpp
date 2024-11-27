@@ -95,7 +95,7 @@ window.onload = async function(){
     window.onscroll = function() {
         // console.log('getScrollbarPositionFromRight: ', getScrollbarPositionFromRight());
         // console.log('getScrollbarPositionFromTop: ', getScrollbarPositionFromTop());
-        content.last_scroll = settings.is_horizonal ? getScrollbarPositionFromRight() : getScrollbarPositionFromTop();
+        content.last_scroll = settings.is_horizonal ? getScrollbarPositionFromTop() : getScrollbarPositionFromRight();
         saveCurrentContent(content);
     }
 
@@ -247,8 +247,8 @@ window.onload = async function(){
                         </div>
                         <div>
                             <div class="setting-switch">
-                                <button class="setting-is-horizonal custom-radio ${!settings.is_horizonal ? "radio-selected" : ""}" value="0">縦書き</button>
                                 <button class="setting-is-horizonal custom-radio ${settings.is_horizonal ? " radio-selected" : ""}" value="1">横書き</button>
+                                <button class="setting-is-horizonal custom-radio ${!settings.is_horizonal ? "radio-selected" : ""}" value="0">縦書き</button>
                             </div>
                         </div>
                     </div>
@@ -494,9 +494,9 @@ window.onload = async function(){
         const last_scroll = content.last_scroll; // レイアウト変更で変わっちゃうので退避
 
         if(settings.is_horizonal) {
-            body.style.writingMode = 'vertical-rl';
-        } else {
             body.style.writingMode = 'horizontal-tb';
+        } else {
+            body.style.writingMode = 'vertical-rl';
         }
 
         // ルビを選択に含めない
@@ -511,7 +511,7 @@ window.onload = async function(){
         }
 
         body.style.margin = '0';
-        body.style.padding = settings.is_horizonal ? `${settings.body_padding}% 10%` : `10% ${settings.body_padding}%`;
+        body.style.padding = settings.is_horizonal ? `10% ${settings.body_padding}%` : `${settings.body_padding}% 10%`;
         body.style.fontSize = settings.font_size + 'px'; // h1, h2とかは除外する？
 
         
@@ -571,7 +571,7 @@ window.onload = async function(){
             body.removeEventListener('wheel', wheel_event_listner, { passive: false });
             wheel_event_listner = null;
         }
-        if (settings.is_horizonal) {
+        if (!settings.is_horizonal) {
             wheel_event_listner = (event) => {
                 event.preventDefault(); // デフォルトの縦スクロールを無効化
 
@@ -629,9 +629,9 @@ window.onload = async function(){
         console.log('percentage: ', percentage);
 
         if(settings.is_horizonal) {
-                scrollTo({ left: document.querySelector('body').scrollWidth * (-percentage / 100) });
-        } else {
             scrollTo(0, (percentage / 100) * (document.documentElement.scrollHeight - document.documentElement.clientHeight));
+        } else {
+            scrollTo({ left: document.querySelector('body').scrollWidth * (-percentage / 100) });
         }
     }
 
