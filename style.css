@@ -131,7 +131,7 @@
     margin: 0;
 }
 #modal-container {
-    min-height: 700px;
+    min-height: 80vh;
     width: 480px;
     padding: 10px;
     background-color: #fff;
