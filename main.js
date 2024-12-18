@@ -1,21 +1,25 @@
 window.onload = async function () {
-    /*
-        ToDo
-        ・highlight実装
-        ・設定&favスイッチ実装
-    */
+    let playing_flag = false; // 再生中であるか
+    let processing_flag = false; // データ生成中であるか
+    let is_first = true;
+    let selected_index = -1;
+    let generate_num = -1;
+    let playing_num = -1;
+    let wavs = [];
+    let audioContext = null;
+    let audio_source = null;
+    let is_communication_open = true;
+
+    const page_info = {
+        id: extractId(),
+        title: document.querySelector('.title').textContent,
+        author: document.querySelector('head meta[name="DC.Creator"]').getAttribute('content'),
+    };
 
     // 設定系はlocalStorage
     // 作品関係はIndexedDB
 
-    const page_info = {
-        id: extractId(),
-        title: document.querySelector("body > h1").textContent,
-        author: document.querySelector('head meta[name="DC.Creator"]').getAttribute('content'),
-    };
-
     // localStorage
-
     const initialSettings = {
         is_horizontal: true, // 横書きならtrue
         is_exclude_ruby: true, // ルビを含まないならtrue
@@ -26,6 +30,9 @@ window.onload = async function () {
         body_padding: 8,
         // カラー系は初期値に戻せるだけじゃなくて継承も選べるといいかも(他の拡張機能との競合を避けたい)
         theme: 0,
+        is_voice_enable: false,
+        voice_actor_id: 3,
+        voice_actor_name: 'ずんだもん(ノーマル)',
     };
 
     let local = localStorage.getItem('settings');
@@ -101,6 +108,7 @@ window.onload = async function () {
                         <span class="nav-content" data-tab="1">閲覧履歴</span>
                         <span class="nav-content" data-tab="2">読了履歴</span>
                         <span class="nav-content" data-tab="3">設定</span>
+                        <span class="nav-content" data-tab="4">音声</span>
                     </div>
                     <div id="controller-box">
                         <p class="bookmark-icon update-bookmark ${content.fav_at === '' ? "bookmark-disable" : "bookmark-enable"} reload icon" data-id="${page_info.id}"></p>
@@ -112,6 +120,7 @@ window.onload = async function () {
                     <div id="opened-history-top" class="list-box" style="display: none;"}>${await generateTab('opened_history')}</div>
                     <div id="done-history-top" class="list-box" style="display: none;"}>${await generateTab('done_history')}</div>
                     <div id="setting-top" class="list-box" style="display: none;"}>${await generateTab('setting')}</div>
+                    <div id="audio-top" class="list-box" style="display: none;"}>${await generateTab('audio')}</div>
                 </div>
             </div>
         </div>
@@ -123,6 +132,9 @@ window.onload = async function () {
     let mouseout_event_listener = null;
 
     const body = document.querySelector("body");
+
+    // 必ずしも全てのtextが.main_textに入ってないので使わない
+    // const main_text = document.querySelector(".main_text");
 
     body.insertAdjacentHTML('beforeend', modal_html);
 
@@ -141,6 +153,54 @@ window.onload = async function () {
     const interface = document.getElementById('interface');
 
     reflectLayout(); // レイアウト反映
+
+    // 扱いやすいように本文をspanで囲む
+    function wrapTextNodesWithSpan(element) {
+        const childNodes = Array.from(element.childNodes);
+        let buffer = ''; // 現在処理中の行を保持
+        const nodesToRemove = []; // 削除対象ノードリスト
+
+        childNodes.forEach(node => {
+            if (node.nodeType === Node.TEXT_NODE || node.nodeName === 'RUBY') {
+                // テキストまたは <ruby> 要素をバッファに追加
+                buffer += node.outerHTML || node.textContent;
+                nodesToRemove.push(node);
+            } else if (node.nodeName === 'BR') {
+                // 行が終了するタイミング
+                if (buffer.trim() !== '') {
+                    const span = document.createElement('span');
+                    span.className = 'blocks';
+                    span.innerHTML = buffer;
+
+                    element.insertBefore(span, node);
+                    buffer = ''; // 次の行に向けてバッファをクリア
+                }
+                // <br> はそのまま残すためスキップ
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                // 子要素がある場合は再帰的に処理
+                wrapTextNodesWithSpan(node);
+            }
+        });
+
+        // 最後のバッファが残っている場合も処理
+        if (buffer.trim() !== '') {
+            const span = document.createElement('span');
+            span.className = 'blocks';
+            span.innerHTML = buffer;
+            element.appendChild(span);
+        }
+
+        // 元ノードの削除
+        nodesToRemove.forEach(node => element.removeChild(node));
+    }
+
+    // 実行対象の要素
+    const mainText = document.querySelector('.main_text');
+    wrapTextNodesWithSpan(mainText);
+
+
+
+    // ここまで読込時処理
 
     // モーダル内に表示するhtml生成
     // type: 'bookmark' | 'opened_history' | 'done_history' | 'setting'
@@ -303,10 +363,303 @@ window.onload = async function () {
                     </div>
                 `;
                 break;
+            case 'audio':
+                html = `
+                    <div class="setting-box">
+                        <div>
+                            <span class="setting-key">VOICEVOXによる読み上げを有効にする</span>
+                        </div>
+                        <div class="toggle-button-box">
+                            <label class="toggle-button">
+                                <input type="checkbox" class="audio-is-voice-enable toggle-button__checkbox" ${settings.is_voice_enable ? "checked" : ""} />
+                            </label>
+                        </div>
+                    </div>
+                    <div class="setting-box">
+                        <div>
+                            <span class="setting-key">VOICE:</span>
+                        </div>
+                        <div class="toggle-button-box">
+                            <input type="button" id="open-actor-selector" class="custom-button" value="${settings.voice_actor_name}" />
+                        </div>
+                    </div>
+                `;
+                break;
             default:
                 return;
         }
         return html;
+    }
+
+    document.addEventListener('mouseover', function(e) {
+        const target = e.target;
+        if (target.classList.contains('blocks') && !target.classList.contains('now-playing') && !target.classList.contains('selected-block')) {
+            if (playing_flag) return;
+            target.style.backgroundColor = '#6aa9a6';
+        }
+    });
+    document.addEventListener('mouseout', function (e) {
+        const target = e.target;
+        if (target.classList.contains('blocks') && !target.classList.contains('selected-block')) {
+            if (playing_flag) return;
+            target.style.backgroundColor = '';
+        }
+    });
+    document.addEventListener('mousedown', function(e) {
+        const target = e.target;
+        console.log(target);
+        if (target.classList.contains('blocks')) {
+            if (playing_flag) return;
+            document.querySelectorAll('.blocks').forEach(item =>  {
+                item.classList.remove('selected-block');
+                item.style.backgroundColor = '';
+            });
+            if (!target.classList.contains('now-playing')) {
+                target.style.backgroundColor = '#6aa9a6';
+                target.classList.add('selected-block');
+            }
+        }
+    });
+
+    document.addEventListener('keydown', e => {
+        // 変数eventの中身はKeyboardEventオブジェクト
+        console.log(e.keyCode);
+        switch(e.keyCode) {
+            case 13: // Enter
+            case 32: // Space
+                e.stopPropagation();
+                speak();
+                break;
+            case 75: // K
+                toggleAudio();
+                break;
+        }
+    });
+
+    function toggleAudio() {
+        if (!audioContext) return;
+        if (audioContext.state === 'running') { // 再生 | 一時停止 切替
+            playing_flag = false;
+            audioContext.suspend();
+        } else if (audioContext.state === 'suspended') {
+            playing_flag = true;
+            audioContext.resume();
+        } 
+    }
+
+    function waitForCommunicationOpen() {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const minAttempts = 150; // 最低試行回数
+            const maxAttempts = 10000; // 最大試行回数
+            const timer = setInterval(() => {
+                if (is_communication_open && ++attempts >= minAttempts) { // is_communication_open が true なら処理を停止
+                    clearInterval(timer);
+                    console.log('準備完了');
+                    resolve('ok');
+                } else if (++attempts >= maxAttempts) { // タイムアウト条件
+                    clearInterval(timer);
+                    console.log('timeout');
+                    reject('timeout');
+                }
+            }, 20);
+        });
+    }
+
+    async function speak() {
+        if (playing_flag) return;
+        if (processing_flag) { // 既にprocessが回ってたら中断し、準備が整うのを待つ
+            processing_flag = false;
+            audio_source.stop();
+            audio_source = null;
+            audioContext.close();
+            audioContext = null;
+
+            try {
+                await waitForCommunicationOpen(); // 処理が中断されるのを待つ
+            } catch (e) {
+                console.error(e);
+                return; // タイムアウトの場合は処理を中断
+            }
+        }
+
+        wavs.length = 0;
+        const blocks = document.querySelectorAll('.blocks');
+        selected_index = Array.from(blocks).findIndex(block => block.classList.contains('selected-block'));
+        processing_flag = true;
+        is_first = true;
+        generate_num = selected_index;
+        nextProcess();
+    }
+
+    async function nextProcess() {
+        console.log('generate_num: ', generate_num);
+        let block_text = getBlockText(generate_num);
+
+        while (block_text) {
+            if (!processing_flag) return;
+
+            let splited_texts = splitText(block_text, 60, 120);
+            const block_num = generate_num;
+
+            let text = splited_texts.shift();
+            console.log('text: ', text);
+            while (text) {
+                // サーバーのメモリ消費が膨れ上がるのはこの数とは関係ない？
+                // 一度に渡すテキストの大きさによって決まる？
+                // 一文字5MBくらい？
+                while (wavs.length >= 5) {
+                    await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
+                }
+
+                await new Promise((resolve) => {
+                    generateVoiceData(text, async function (wavData) {
+                        if (!processing_flag) return;
+                        await decodeWav(wavData, block_num); // decodeWavの完了を待つ
+                        resolve(); // 非同期処理が完了したら次に進む
+                    });
+                });
+
+                text = splited_texts.shift();
+            }
+            
+            if (!processing_flag) return;
+
+            generate_num++;
+            block_text = getBlockText(generate_num);
+        }
+
+        processing_flag = false;
+    }
+
+
+    function generateVoiceData(text, callback) {
+        if (!processing_flag) return;
+        // console.log('voicevoxへのtext: ', text);
+        is_communication_open = false;
+        chrome.runtime.sendMessage({ type: "generate_voice_data", text: text }, function (response) {
+            if (!processing_flag) {
+                is_communication_open = true;
+                return;
+            }
+            let wavedata = new Uint16Array([].map.call(response.data, function (c) {
+                return c.charCodeAt(0);
+            })).buffer;
+            callback(wavedata);
+        });
+    }
+
+    function decodeWav(wavData, block_num) {
+        if (!audioContext) {
+            audioContext = new AudioContext();
+        }
+        audioContext.decodeAudioData(wavData, function (decodedData) {
+            if (!processing_flag) return;
+            try {
+                let source = audioContext.createBufferSource();
+                source.buffer = decodedData;
+                if (processing_flag) {
+                    wavs.push({
+                        source: source,
+                        block_num: block_num,
+                    });
+                }
+                if (is_first) {
+                    // 初めの一回だけ
+                    // あとは勝手にまわる
+                    is_first = false;
+                    playNext();
+                }
+            } catch (e) {
+                console.log(`許容エラー : ${e}`);
+                return;
+            }
+        }).catch(function (error) {
+            console.error("decodeAudioDataエラー:", error);
+            return;
+        });
+    }
+
+    //デコードしたデータを再生
+    let retry = 0;
+    function playNext() {
+        if (wavs.length === 0) {
+            //初めの1回は必ずデータがあるが2回目以降は再生が追い越してデータが無いことがあり得る
+            //その場合、200ms待機して再帰呼び出しを繰り返す
+            //50回やってもデータが来なければキャンセル
+            retry++;
+            if (retry > 49) {
+                return;
+            }
+            setTimeout(function () {
+                playNext();
+            }, 200);
+            return;
+        }
+        retry = 0;
+        console.log('wavs: ', wavs);
+        const wav_data = wavs.shift();
+        audio_source = wav_data.source;
+        playing_num = wav_data.block_num;
+        selected_index = playing_num;
+        audio_source.connect(audioContext.destination);
+        audio_source.onended = function () {
+            setTimeout(function () {
+                if (wavs) {
+                    playNext();
+                } else {
+                    //再生プロセス終了
+                    playing_flag = false;
+                }
+            }, 500);
+        }
+        audio_source.start(0);
+        playing_flag = true;
+        highlightBlock();
+        scrollToBlock();
+    }
+
+    function getBlockText(num) {
+        return document.querySelectorAll('.blocks')[num]?.innerHTML.replace(/<ruby>(.*?)<\/ruby>/g, (match) => {
+            // <ruby>タグ内の<rt>部分を取り出す
+            const rtText = match.replace(/<rb>.*?<\/rb>/g, '')  // <rb>タグを削除
+                .match(/<rt.*?>(.*?)<\/rt>/)[1];  // <rt>タグの内容を取り出す
+
+            return rtText;  // 置き換えた<rt>内容を返す
+        }) || null;
+    }
+
+    function splitText(text, min, max) {
+        const result = [];
+        let current = text;
+
+        while (current.length > 0) {
+            if (current.length <= max) {
+                result.push(current);
+                break;
+            }
+
+            let splitIndex = -1;
+
+            // 80～120文字の範囲で「。」を探す
+            for (let i = min; i <= max; i++) {
+                if (current[i] === '。') {
+                    splitIndex = i + 1; // 「。」の次で分割
+                    break;
+                }
+            }
+
+            // 「。」が見つからなければ120文字で分割
+            if (splitIndex === -1) {
+                splitIndex = max;
+            }
+
+            // 分割して結果に追加
+            result.push(current.slice(0, splitIndex).trim());
+            current = current.slice(splitIndex);
+        }
+
+        return result;
     }
 
     // modal表示
@@ -487,9 +840,8 @@ window.onload = async function () {
     }
 
     // settingsを参照してレイアウトに反映
-    function reflectLayout() {
-        // 必ずしも全てのtextが.main_textに入ってないので使わない
-        // const main_text = document.querySelector(".main_text");
+    function reflectLayout(key) {
+        // TODO: 読込時以外は変更があったプロパティだけレイアウトを更新する
 
         const last_scroll = content.last_scroll; // レイアウト変更で変わっちゃうので退避
 
@@ -518,7 +870,7 @@ window.onload = async function () {
         // 0: 通常, 1: 空, 2: 翠, 3: 暗, 4: 紺
         let bg_color = 'fff';
         let font_color = '000';
-        let icon_color = 'ececece';
+        let icon_color = 'ececec';
         let hover_interface_color = 'ececec';
         let hover_menu_icon_color = '000';
         switch (settings.theme) {
@@ -635,6 +987,42 @@ window.onload = async function () {
                 left: document.querySelector('body').scrollWidth * (-percentage / 100)
             });
         }
+    }
+
+    function scrollToBlock() {
+        const block = document.querySelectorAll('.blocks')[playing_num];
+        if (!block) return;
+
+        // 要素の位置とサイズを取得
+        const rect = block.getBoundingClientRect();
+
+        // 現在のスクロール位置
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+
+        // 要素の中心座標を計算
+        const elementCenterX = rect.left + rect.width / 2;
+        const elementCenterY = rect.top + rect.height / 2;
+
+        // 表示領域（ビューポート）の中心座標
+        const viewportCenterX = window.innerWidth / 2;
+        const viewportCenterY = window.innerHeight / 2;
+
+        // スクロール位置を調整
+        window.scrollTo({
+            top: scrollY + (elementCenterY - viewportCenterY),
+            left: scrollX + (elementCenterX - viewportCenterX),
+            behavior: "smooth", // スムーズなスクロールアニメーション
+        });
+    }
+
+    function highlightBlock() {
+        const blocks = document.querySelectorAll('.blocks');
+        blocks.forEach(item => {
+            item.style.backgroundColor = '';
+        });
+        blocks[playing_num].style.backgroundColor = '#2f5d5b';
+        
     }
 
     // スクロールバーが左端までの何%の位置にあるか取得

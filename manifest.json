@@ -4,7 +4,14 @@
     "manifest_version": 3,
     "description": "青空文庫UI拡張",
     "permissions": [
-        "storage"
+        "storage",
+        "declarativeNetRequest"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "host_permissions": [
+        "*://localhost/*"
     ],
     "content_scripts": [
         {
@@ -20,6 +27,15 @@
             ]
         }
     ],
+    "declarative_net_request": {
+        "rule_resources": [
+            {
+                "enabled": true,
+                "id": "ruleset",
+                "path": "rules.json"
+            }
+        ]
+    },
     "web_accessible_resources": [
         {
             "resources": [
