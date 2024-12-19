@@ -192,6 +192,37 @@
     display: flex;
     align-items: center;;
 }
+#audio-controller-container {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6vh;
+    height: 6vh;
+    padding: 10px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.audio-controller {
+    border-radius: 50%;
+    height: 100%;
+}
+#audio-disable {
+    border: 1px solid #5F656E;
+}
+#audio-play, #audio-suspend {
+    border: 1px solid #2196F2;
+    display: none;
+    cursor: pointer;
+}
+.audio-icon {
+    width: 50%;
+    height: 50%;
+    fill: #5F656E;
+    /* アイコンの色 */
+}
 .toggle-button {
     position: relative;
     display: block;
@@ -199,7 +230,7 @@
     height: 24px;
     border: 1px solid #b8b8b8;
     border-radius: 9999px;
-    background-color: #dddddd;
+    background-color: #5F656E;
     cursor: pointer;
 }
 .toggle-button:has(:focus-visible) {
