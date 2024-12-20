@@ -133,9 +133,6 @@ window.onload = async function () {
 
     const body = document.querySelector("body");
 
-    // 必ずしも全てのtextが.main_textに入ってないので使わない
-    // const main_text = document.querySelector(".main_text");
-
     body.insertAdjacentHTML('beforeend', modal_html);
 
     const modal = document.getElementById('modal-bg');
@@ -226,8 +223,10 @@ window.onload = async function () {
 
     // ここまで読込時処理
 
-    // モーダル内に表示するhtml生成
-    // type: 'bookmark' | 'opened_history' | 'done_history' | 'setting'
+    /**
+     * モーダル内に表示するhtml生成
+     * @param {'bookmark' | 'opened_history' | 'done_history' | 'setting'} type 
+     */
     async function generateTab(type) {
         let html = '';
         switch (type) {
@@ -475,6 +474,9 @@ window.onload = async function () {
         }
     });
 
+    /**
+     * 音声の 再生 | 一時停止 切替
+     */
     function toggleAudio() {
         console.log('toggleAudio');
         if (!audioContext) return;
@@ -489,6 +491,10 @@ window.onload = async function () {
         } 
     }
 
+    /**
+     * Audioボタン切替
+     * @param {'hide' | 'disable' | 'play' | 'suspend'} type 
+     */
     function toggleAudioButton(type) {
         document.querySelectorAll('.audio-controller').forEach(item => {
             item.style.display = 'none';
@@ -506,6 +512,10 @@ window.onload = async function () {
         }
     }
 
+    /**
+     * フラグをあれこれしてstartProcessを発火する
+     * 操作系からはこれを呼び出す
+     */
     async function speak() {
         console.log('speak');
         console.log('playing_flag: ', playing_flag);
@@ -543,53 +553,9 @@ window.onload = async function () {
         startProcess();
     }
 
-    async function startProcess() {
-        let block_text = getBlockText(generate_num);
-
-        while (block_text) {
-            if (!processing_flag) return;
-
-            let splited_texts = splitText(block_text, 60, 120);
-            const block_num = generate_num;
-
-            let text = splited_texts.shift();
-            while (text) {
-                // サーバーのメモリ消費が膨れ上がるのはこの数とは関係ない？
-                // 一度に渡すテキストの大きさによって決まる？
-                // 一文字5MBくらい？
-                while (wavs.length >= 5) {
-                    await new Promise((resolve) => setTimeout(resolve, 100)); // 100ms待機
-                }
-
-                await new Promise((resolve) => {
-                    generateVoiceData(text, async function (response) {
-                        if (!processing_flag) return;
-                        
-                        await decodeWav(response, block_num); // decodeWavの完了を待つ
-                        resolve(); // 非同期処理が完了したら次に進む
-                    });
-                });
-
-                if (is_first) {
-                    // 初めの一回だけ
-                    // あとは勝手にまわる
-                    is_first = false;
-                    playNext();
-                }
-
-                text = splited_texts.shift();
-            }
-            
-            if (!processing_flag) return;
-
-            generate_num++;
-            block_text = getBlockText(generate_num);
-        }
-
-        processing_flag = false;
-    }
-
-    // vv_engineで音声合成
+    /**
+     * 音声合成のコントローラー的なアレ
+     */
     async function startProcess() {
         let block_text = getBlockText(generate_num);
 
@@ -627,6 +593,10 @@ window.onload = async function () {
         processing_flag = false;
     }
 
+    /**
+     * かますとキャンセルしやすくなるらしい
+     * @param {string} text 
+     */
     function generateVoiceDataAsync(text) {
         return new Promise((resolve, reject) => {
             generateVoiceData(text, function (response) {
@@ -636,6 +606,11 @@ window.onload = async function () {
         });
     }
 
+    /**
+     * voicevox_engineで音声合成するためにbackground.jsと通信
+     * @param {string} text 
+     * @param {CallbackType} callback 
+     */
     function generateVoiceData(text, callback) {
         if (!processing_flag) return;
 
@@ -674,8 +649,12 @@ window.onload = async function () {
         });
     }
 
-
-    // synthesisからのレスポンスをいい感じに成型
+    /**
+     * synthesisからのレスポンスをいい感じに成型
+     * @param {string} wavData 
+     * @param {number} block_num 
+     * @returns 
+     */
     function decodeWav(wavData, block_num) {
         if (!audioContext) {
             audioContext = new AudioContext();
@@ -701,10 +680,11 @@ window.onload = async function () {
         });
     }
 
-
-    //デコードしたデータを再生
-    let retry = 0;
+    /**
+     * デコードしたデータを再生
+     */
     function playNext() {
+        let retry = 0;
         if (wavs.length === 0) {
             //初めの1回は必ずデータがあるが2回目以降は再生が追い越してデータが無いことがあり得る
             //その場合、200ms待機して再帰呼び出しを繰り返す
@@ -740,7 +720,11 @@ window.onload = async function () {
         scrollToBlock();
     }
 
-    // .blocks[num]を取得
+    /**
+     * .blocks[num]を取得
+     * @param {number} num 
+     * @returns {string | null}
+     */
     function getBlockText(num) {
         return document.querySelectorAll('.blocks')[num]?.innerHTML.replace(/<ruby>(.*?)<\/ruby>/g, (match) => {
             // <ruby>タグ内の<rt>部分を取り出す
@@ -751,8 +735,26 @@ window.onload = async function () {
         }) || null;
     }
 
-    // min～max文字の範囲で「。」を探し、見つからなければmax文字で分割
+    /**
+     * min～max文字の範囲で「。」を探し、見つからなければmax文字で分割
+     * @param {string} text 
+     * @param {number} min 
+     * @param {number} max 
+     * @returns {string[]}
+     * @throws {Error} 不正な引数が渡された場合にエラーをスロー
+     */
+    // 
     function splitText(text, min, max) {
+        if (typeof text !== 'string') {
+            throw new Error("引数 'text' は文字列である必要があります。");
+        }
+        if (typeof min !== 'number' || typeof max !== 'number') {
+            throw new Error("引数 'min' と 'max' は数値である必要があります。");
+        }
+        if (min <= 0 || max <= 0 || min > max) {
+            throw new Error("'min' は正の数で、'max' より小さい必要があります。");
+        }
+
         const result = [];
         let current = text;
 
@@ -900,12 +902,22 @@ window.onload = async function () {
     });
 
     // IndexedDB
+
+    /**
+     * なければ新規追加、あれば更新
+     * @param {Content} content 登録するContent
+     */
     async function saveCurrentContent(content) {
         // console.trace();
         await db.contents.put(content);
     }
 
-    // 指定したキーの時刻を 現在時刻 or 空文字で更新
+    /**
+     * 指定したキーの時刻を 現在時刻 or 空文字で更新
+     * @param {string} id 
+     * @param {string} key 
+     * @param {boolean} is_to_enable 
+     */
     async function updateTime(id, key, is_to_enable) {
         // console.trace();
         const new_time = is_to_enable ? new Date().getTime() : "";
@@ -914,19 +926,31 @@ window.onload = async function () {
         });
     }
 
-    // idを指定して閲覧履歴削除
+    /**
+     * idを指定して閲覧履歴削除
+     * @param {string} id 
+     */
     async function deleteOpenedAt(id) {
         await db.contents.update(id, {
             'opened_at': ""
         });
     }
 
-    // idでcontentを取得
+    /**
+     * idでcontentを取得
+     * @param {string} id 
+     * @returns {Content}
+     */
     async function getContent(id) {
         return await db.contents.get(id);
     }
 
-    // keyを指定してcontentを取得 at系専用
+    /**
+     * keyを指定してcontentを取得 at系専用
+     * @param {string} key 
+     * @param {number} limit 未実装 取得数上限
+     * @returns {Content} 該当データ丸ごと
+     */
     async function getContents(key, limit) {
         const results = await db.contents
             .where(key)
@@ -940,14 +964,21 @@ window.onload = async function () {
         return results;
     }
 
-    // urlからid抽出
+    /**
+     * urlからid抽出
+     * @returns {string} 作者idと作品idを'e'で連結した文字列
+     */
     function extractId() {
         const numbers = location.href.match(/\d+/g);
         return numbers ? numbers.join('e') : '';
     }
 
-    // idからurl構築
-    // type: content(作者ページ) | author(作品ページ)
+    /**
+     * idからurl構築
+     * @param {number} id 
+     * @param {'content' | 'author'} type content(作者ページ) | author(作品ページ)
+     * @returns 
+     */
     function reconstructUrl(id, type) {
         const parts = id.split('e');
         if (parts.length !== 3) {
@@ -960,7 +991,10 @@ window.onload = async function () {
         }
     }
 
-    // settingsを参照してレイアウトに反映
+    /**
+     * settingsを参照してレイアウトに反映
+     * @param {string} key 未実装
+     */
     function reflectLayout(key) {
         // TODO: 読込時以外は変更があったプロパティだけレイアウトを更新する
 
@@ -1099,7 +1133,10 @@ window.onload = async function () {
 
     }
 
-    // 任意の位置(右側からの百分率)にスクロール
+    /**
+     * 任意の位置(右側からの百分率)にスクロール
+     * @param {number} percentage 0 - 100
+     */
     function scrollWithPercentage(percentage) {
         if (settings.is_horizontal) {
             scrollTo(0, (percentage / 100) * (document.documentElement.scrollHeight - document.documentElement.clientHeight));
@@ -1110,7 +1147,9 @@ window.onload = async function () {
         }
     }
 
-    // .blocks[playing_num]へスクロール
+    /**
+     * .blocks[playing_num]へスクロール
+     */
     function scrollToBlock() {
         const block = document.querySelectorAll('.blocks')[playing_num];
         if (!block) return;
@@ -1138,7 +1177,9 @@ window.onload = async function () {
         });
     }
 
-    // .blocks[playing_num]をハイライト
+    /**
+     * .blocks[playing_num]をハイライト
+     */
     function highlightBlock() {
         const blocks = document.querySelectorAll('.blocks');
         blocks.forEach(item => {
@@ -1148,7 +1189,11 @@ window.onload = async function () {
         
     }
 
-    // スクロールバーが左端までの何%の位置にあるか取得
+    /**
+     * スクロールバーが左端までの何%の位置にあるか取得
+     * @returns {number}
+     */
+    // 
     function getScrollbarPositionFromRight() {
         // ドキュメントの全幅
         const documentWidth = document.documentElement.scrollWidth;
@@ -1161,7 +1206,10 @@ window.onload = async function () {
         return percentageFromRight;
     }
 
-    // スクロールバーが終端までの何%の位置にあるか取得
+    /**
+     * スクロールバーが終端までの何%の位置にあるか取得
+     * @returns {number}
+     */
     function getScrollbarPositionFromTop() {
         // scrollTopはdocument.documentElementを優先して取得
         const scrollTop = document.documentElement.scrollTop;
