@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "AZ++",
+    "version": "1.0",
+    "description": "A sample Chrome extension using Vue, Pinia, and Dexie",
+    "permissions": [
+        "storage"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["https://www.aozora.gr.jp/cards/*/files/*.html"],
+            "js": ["dist/main.js"]
+        }
+    ]
+}
